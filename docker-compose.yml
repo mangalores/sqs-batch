@@ -1,7 +1,7 @@
 version: "3"
 services:
   sqs:
-    image: "roribio16/alpine-sqs:latest"
+    image: "softwaremill/elasticmq:latest"
     container_name: "queue"
     ports:
       - "9324:9324"

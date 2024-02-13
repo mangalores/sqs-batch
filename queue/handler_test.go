@@ -1,9 +1,10 @@
 package queue
 
 import (
+	"context"
 	"errors"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/sqs"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/sqs/types"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -20,19 +21,19 @@ func TestWrap(t *testing.T) {
 
 func TestWrapperHandler_Handle(t *testing.T) {
 	single := &MockSingleHandler{mx: sync.RWMutex{}}
-	handler := WrapperHandler{handler: single}
+	handler := WrapperHandler{handler: single, wg: &sync.WaitGroup{}}
 
-	messages := []*sqs.Message{
+	messages := []types.Message{
 		{MessageId: aws.String("foo")},
 		{MessageId: aws.String("bar")},
 		{MessageId: aws.String("baz")},
 	}
 
-	err := handler.Handle(messages)
+	err := handler.Handle(context.Background(), messages)
 
 	require.Nil(t, err)
 	require.Len(t, single.received, 3)
-	actual := []*sqs.Message{}
+	actual := []types.Message{}
 	for _, a := range single.received {
 		for _, e := range messages {
 			if e.MessageId == a.MessageId {
@@ -45,15 +46,15 @@ func TestWrapperHandler_Handle(t *testing.T) {
 }
 
 func TestWrapperHandler_HandleErr(t *testing.T) {
-	messages := []*sqs.Message{{MessageId: aws.String("foo")}}
+	messages := []types.Message{{MessageId: aws.String("foo")}}
 	expectedErr := errors.New("foo bAz BaR")
 
 	hook := &MockLogHook{}
 	logrus.AddHook(hook)
 	single := &MockSingleHandler{handleErr: expectedErr, mx: sync.RWMutex{}}
-	handler := WrapperHandler{handler: single}
+	handler := WrapperHandler{handler: single, wg: &sync.WaitGroup{}}
 
-	err := handler.Handle(messages)
+	err := handler.Handle(context.Background(), messages)
 	require.Nil(t, err)
 	require.Len(t, single.received, 1)
 	require.Len(t, hook.messages, 1)
